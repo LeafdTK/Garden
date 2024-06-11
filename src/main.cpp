@@ -4,11 +4,11 @@
 #include <DHT.h>
 
 // Replace with your network credentials
-const char* ssid = "YOUR_SSID";
-const char* password = "YOUR_PASSWORD";
+const char* ssid = "meca";
+const char* password = "meca2023";
 
 // Replace with the IP address of your server and the port
-const char* serverName = "http://YOUR_SERVER_IP:3000/upload";
+const char* serverName = "http://62.55.20.57:3000/upload";
 
 // DHT Sensor setup
 #define DHTPIN 2      // GPIO2 (D4 on NodeMCU)
@@ -25,7 +25,10 @@ void setup() {
     Serial.begin(115200);
     delay(10);
 
+    // Connect to Wi-Fi
     connectToWiFi();
+
+    // Initialize DHT sensor
     dht.begin();
 }
 
@@ -33,18 +36,23 @@ void loop() {
     delay(2000);
 
     int temperature, humidity;
+
+    // Read temperature and humidity from DHT sensor
     readDHTSensor(temperature, humidity);
 
+    // If readings are valid, send data to server
     if (temperature != -1 && humidity != -1) {
         sendDataToServer(temperature, humidity);
     }
 }
 
 void connectToWiFi() {
+    // Connect to Wi-Fi network
     WiFi.begin(ssid, password);
     Serial.print("Connecting to ");
     Serial.print(ssid);
 
+    // Wait until connected
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
         Serial.print(".");
@@ -55,21 +63,24 @@ void connectToWiFi() {
 }
 
 void readDHTSensor(int &temperature, int &humidity) {
-    float t = dht.readTemperature();
-    float h = dht.readHumidity();
+    // Read temperature and humidity from DHT sensor
+    int t = int(dht.readTemperature() * 10); // Multiply by 10 to retain one decimal place
+    int h = int(dht.readHumidity() * 10);    // Multiply by 10 to retain one decimal place
 
-    if (isnan(t) || isnan(h)) {
+    // Check if sensor reading is valid
+    if (t == -127 || h == -127) {
         Serial.println("Failed to read from DHT sensor!");
         temperature = -1;
         humidity = -1;
     } else {
-        temperature = static_cast<int>(t * 10);
-        humidity = static_cast<int>(h * 10);
+        // Store temperature and humidity values
+        temperature = t;
+        humidity = h;
         Serial.print("Humidity: ");
-        Serial.print(humidity / 10.0);
+        Serial.print(h / 10); // Divide by 10 to display one decimal place
         Serial.print(" %\t");
         Serial.print("Temperature: ");
-        Serial.print(temperature / 10.0);
+        Serial.print(t / 10); // Divide by 10 to display one decimal place
         Serial.println(" *C");
     }
 }
@@ -79,11 +90,14 @@ void sendDataToServer(int temperature, int humidity) {
         WiFiClient client;
         HTTPClient http;
 
-        String serverPath = String(serverName) + "?temperature=" + String(temperature) + "&humidity=" + String(humidity);
+        // Construct URL with temperature and humidity values
+        String serverPath = String(serverName) + "?temperature=" + String(temperature / 10) + "&humidity=" + String(humidity / 10);
 
-        http.begin(client, serverPath.c_str());
+        // Send HTTP GET request to server
+        http.begin(client, serverPath);
         int httpResponseCode = http.GET();
 
+        // Check HTTP response code
         if (httpResponseCode > 0) {
             Serial.print("HTTP Response code: ");
             Serial.println(httpResponseCode);
